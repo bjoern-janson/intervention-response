@@ -1,0 +1,113 @@
+name: Engineered-World v0.4 Parameter-Update Localization
+
+on:
+  push:
+    branches: [prospective-v0.4]
+    paths:
+      - V0_4_EXECUTE
+
+permissions:
+  contents: read
+
+jobs:
+  v0-4-localization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout frozen v0.4 execution commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Verify marker-only authorization and frozen identities
+        shell: bash
+        run: |
+          changed="$(git diff --name-only HEAD^ HEAD)"
+          test "$changed" = "V0_4_EXECUTE" || { echo "execution commit changed files other than V0_4_EXECUTE"; printf '%s\n' "$changed"; exit 1; }
+          echo "17f7fa7172a1e0927ab9b93df1abcc7fdb3fc23b1838cf480fc1afa5509308cb  world.py" | sha256sum -c -
+          echo "2e10e6671f97da8b66ad8bfb16c3a52bb78c9f20d87d396566f655d25f6c8b8b  data.py" | sha256sum -c -
+          echo "2e3447b192c0c88e15012a8dfbfdc44eff5ba789302e090ce2fedcaefe67d674  model.py" | sha256sum -c -
+          echo "0519121e3b1ae218d7105b14cb51355f60aa7babdbf0989488644a09a0d9937f  experiment.py" | sha256sum -c -
+          echo "012e3285b42131df246fa12e1c553a0805e6752a658f4204e4ec43cee0235afd  v0_3_checkpoint_localization.py" | sha256sum -c -
+          echo "15c3ae236dfef19d8e46bd8c9a401db3d5eb83c61026c57ace2fdf2c77ac54a8  V0_3_BEHAVIORAL_SIGNATURES.json.zlib.b64" | sha256sum -c -
+          echo "1b1e3f773d9fe9e3dfd154b93f34ef8ad1a8418763c230c3932371786c5da6b5  v0_4_tensor_contract.py" | sha256sum -c -
+          echo "1b9c30761d0520ffa80ac3b248f2b3fe009f99f42201aad01c44196d8033e0f0  v0_4_reconstruct.py" | sha256sum -c -
+          echo "e970e4b6d6a1a52f9ebe4f4632a4ec4da939ad3779ac25857bb9bbbc6cc30a82  v0_4_patch_localization.py" | sha256sum -c -
+          echo "936132ee4809ed7c03160081d3fba46c99b1b98eb94d3f8a12596c581a8937f8  test_v0_4_tensor_contract.py" | sha256sum -c -
+          echo "b376b250521cc8ca6b595728bb385c9e17b2b179b8d3d2092b20e1ffaa9c8f34  test_v0_4_pipeline.py" | sha256sum -c -
+          echo "049aedb4ecf819a6abe28d72916dc59d32a959ef50721fb46e277d20361a91b1  V0_4_PREREGISTRATION.md" | sha256sum -c -
+          echo "45affdf91d4339ed3608029a4b85ec15b66e136eb153012cff2a83e373e71e82  docs/superpowers/specs/2026-09-11-v0-4-parameter-localization-design.md" | sha256sum -c -
+          echo "be51b7fc6948af25067a476878b415f45a042ffd53dc65689dc1118e440a104c  docs/superpowers/plans/2026-09-11-v0-4-parameter-localization.md" | sha256sum -c -
+          if grep -nE 'train_steps|AdamW|backward\(|LR_HISTORY|LR_COMMON' v0_4_patch_localization.py; then
+            echo "forbidden training primitive found in v0.4 patch stage"
+            exit 1
+          fi
+
+      - name: Set up Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.5'
+
+      - name: Install frozen runtime
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.3.5 torch==2.10.0
+          python - <<'PY'
+          import sys, numpy, torch
+          print('python', sys.version)
+          print('numpy', numpy.__version__)
+          print('torch', torch.__version__)
+          assert sys.version_info[:3] == (3, 13, 5)
+          assert numpy.__version__ == '2.3.5'
+          assert torch.__version__.split('+')[0] == '2.10.0'
+          PY
+
+      - name: Compile exact frozen runtime and v0.4 layer
+        run: |
+          python -m py_compile world.py data.py model.py experiment.py v0_3_checkpoint_localization.py v0_4_tensor_contract.py v0_4_reconstruct.py v0_4_patch_localization.py test_v0_4_tensor_contract.py test_v0_4_pipeline.py
+
+      - name: Run v0.4 regression gates
+        run: |
+          python -m unittest -v test_v0_4_tensor_contract.py test_v0_4_pipeline.py
+
+      - name: Run 2x2 reconstruction and patch smoke
+        shell: bash
+        run: |
+          export V0_4_FREEZE_PARENT="$(git rev-parse HEAD^)"
+          python v0_4_reconstruct.py --smoke --out-dir v0_4_smoke_reconstructed
+          python v0_4_patch_localization.py --smoke --custody-dir v0_4_smoke_reconstructed --out v0_4_smoke_patch.json
+          sha256sum v0_4_smoke_reconstructed/v0_4_reconstruction.json v0_4_smoke_reconstructed/v0_4_checkpoint_custody.json v0_4_smoke_patch.json | tee v0_4_smoke.sha256
+
+      - name: Reconstruct frozen 80x80 endpoints and create tensor custody
+        shell: bash
+        run: |
+          export V0_4_FREEZE_PARENT="$(git rev-parse HEAD^)"
+          python v0_4_reconstruct.py --n-models 80 --out-dir v0_4_reconstructed
+          sha256sum v0_4_reconstructed/v0_4_reconstruction.json v0_4_reconstructed/v0_4_checkpoint_custody.json | tee v0_4_reconstruction.sha256
+          find v0_4_reconstructed/checkpoints -type f -name '*.pt' -print0 | sort -z | xargs -0 sha256sum > V0_4_CHECKPOINT_CONTAINER_SHA256SUMS.txt
+          test "$(wc -l < V0_4_CHECKPOINT_CONTAINER_SHA256SUMS.txt)" -eq 320
+
+      - name: Run frozen History-A single-group patch localization
+        run: |
+          python v0_4_patch_localization.py --custody-dir v0_4_reconstructed --out v0_4_results.json
+          sha256sum v0_4_results.json | tee v0_4_results.sha256
+
+      - name: Upload v0.4 scientific custody
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineered-world-v0.4-parameter-localization
+          path: |
+            v0_4_results.json
+            v0_4_results.sha256
+            v0_4_reconstruction.sha256
+            V0_4_CHECKPOINT_CONTAINER_SHA256SUMS.txt
+            v0_4_reconstructed/v0_4_reconstruction.json
+            v0_4_reconstructed/v0_4_checkpoint_custody.json
+            v0_4_reconstructed/checkpoints/*.pt
+            v0_4_smoke.sha256
+            v0_4_smoke_patch.json
+            V0_4_PREREGISTRATION.md
+            V0_3_BEHAVIORAL_SIGNATURES.json.zlib.b64
+          if-no-files-found: error
+          retention-days: 90
