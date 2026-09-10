@@ -1,0 +1,86 @@
+name: Engineered-World v0.2 Terminal Equivalence Characterization
+
+on:
+  push:
+    branches: [forensic-v0.2]
+    paths:
+      - V0_2_EXECUTE
+
+permissions:
+  contents: read
+
+jobs:
+  terminal-equivalence-v0-2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout frozen v0.2 commit
+        uses: actions/checkout@v4
+
+      - name: Verify frozen source and forensic contract identity
+        shell: bash
+        run: |
+          echo "17f7fa7172a1e0927ab9b93df1abcc7fdb3fc23b1838cf480fc1afa5509308cb  world.py" | sha256sum -c -
+          echo "2e10e6671f97da8b66ad8bfb16c3a52bb78c9f20d87d396566f655d25f6c8b8b  data.py" | sha256sum -c -
+          echo "2e3447b192c0c88e15012a8dfbfdc44eff5ba789302e090ce2fedcaefe67d674  model.py" | sha256sum -c -
+          echo "0519121e3b1ae218d7105b14cb51355f60aa7babdbf0989488644a09a0d9937f  experiment.py" | sha256sum -c -
+          echo "327ce169785cdf05550b72041d33a7104a1f3fe8a40c2299ec922e7ba9792562  forensic_v0_2.py" | sha256sum -c -
+          echo "e8c42472bce03355a1bc3a8a25c2f35a4e59b688addc55a6f152b95e3c99bd88  test_forensic_v0_2.py" | sha256sum -c -
+          echo "3cfa82b50e4678eb65d479e22d317d2003a46b4ef3f40874e519dc7f4afa5d82  V0_2_PREREGISTRATION.md" | sha256sum -c -
+          echo "7e3494b922f2ff64595ec71eb4795f76fb0e5b4345c7daec9dad73f43e905c4d  docs/superpowers/plans/2026-09-10-v0-2-terminal-equivalence-characterization.md" | sha256sum -c -
+          if grep -nE 'apply_intervention|frozen_pair_metrics' forensic_v0_2.py; then
+            echo "Forbidden post-terminal helper reference found in forensic_v0_2.py"
+            exit 1
+          fi
+
+      - name: Set up Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.5'
+
+      - name: Install frozen runtime
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.3.5 torch==2.10.0
+          python - <<'PY'
+          import sys, numpy, torch
+          print('python', sys.version)
+          print('numpy', numpy.__version__)
+          print('torch', torch.__version__)
+          assert sys.version_info[:3] == (3, 13, 5)
+          assert numpy.__version__ == '2.3.5'
+          assert torch.__version__.split('+')[0] == '2.10.0'
+          PY
+
+      - name: Compile exact frozen runtime and forensic layer
+        run: |
+          python -m py_compile world.py data.py model.py experiment.py forensic_v0_2.py test_forensic_v0_2.py
+
+      - name: Run v0.2 regression gates
+        run: |
+          python -m unittest -v test_forensic_v0_2.py
+
+      - name: Run terminal-only 2x2 smoke
+        run: |
+          python forensic_v0_2.py --smoke --out v0_2_smoke.json
+          sha256sum v0_2_smoke.json | tee v0_2_smoke.sha256
+
+      - name: Run frozen 80x80 v0.2 characterization
+        run: |
+          python forensic_v0_2.py --n-models 80 --out v0_2_results.json
+          sha256sum v0_2_results.json | tee v0_2_results.sha256
+
+      - name: Upload v0.2 custody
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineered-world-v0.2-terminal-equivalence-result
+          path: |
+            v0_2_results.json
+            v0_2_results.sha256
+            v0_2_smoke.json
+            v0_2_smoke.sha256
+            V0_2_PREREGISTRATION.md
+          if-no-files-found: warn
+          retention-days: 90
