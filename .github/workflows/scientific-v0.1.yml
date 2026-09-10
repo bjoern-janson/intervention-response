@@ -1,0 +1,71 @@
+name: Engineered-World v0.1 Scientific Execution
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - engineered_world_v0_1.zip
+      - .github/workflows/scientific-v0.1.yml
+
+permissions:
+  contents: read
+
+jobs:
+  scientific-v0-1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout execution commit
+        uses: actions/checkout@v4
+
+      - name: Verify sealed archive
+        shell: bash
+        run: |
+          echo "1a38413702696480efe3ce0db5d05b875c6838f6ea7ac1d4a3c6cc9c85049e13  engineered_world_v0_1.zip" | sha256sum -c -
+          unzip -q engineered_world_v0_1.zip
+          cd engineered_world_v0_1
+          sha256sum -c FILE_SHA256SUMS.txt
+
+      - name: Set up Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.5'
+          cache: pip
+
+      - name: Install frozen runtime
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.3.5 torch==2.10.0
+          python - <<'PY'
+          import sys, numpy, torch
+          print('python', sys.version)
+          print('numpy', numpy.__version__)
+          print('torch', torch.__version__)
+          assert sys.version_info[:3] == (3, 13, 5)
+          assert numpy.__version__ == '2.3.5'
+          assert torch.__version__.split('+')[0] == '2.10.0'
+          PY
+
+      - name: Re-run frozen pre-scientific gates
+        working-directory: engineered_world_v0_1
+        run: |
+          python -m unittest -v test_contract.py
+          python validate_contract.py
+
+      - name: Run frozen 80x80 scientific assay
+        working-directory: engineered_world_v0_1
+        run: |
+          python experiment.py --n-models 80 --out results.json
+          sha256sum results.json | tee results.sha256
+
+      - name: Upload scientific result custody
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineered-world-v0.1-scientific-result
+          path: |
+            engineered_world_v0_1/results.json
+            engineered_world_v0_1/results.sha256
+          if-no-files-found: warn
+          retention-days: 90
