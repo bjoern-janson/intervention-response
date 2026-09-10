@@ -5,3 +5,5 @@ Authorized execution population: 80 History-A + 80 History-B terminal models.
 No intervention, post-terminal update, transfer, control, or crossover execution is authorized.
 
 Trigger commit is execution authorization for the frozen forensic-v0.2 branch state.
+
+Hash-probe trigger: 2
