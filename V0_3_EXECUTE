@@ -1,0 +1,7 @@
+ENGINEERED-WORLD V0.3
+CHECKPOINT / FORMAT LOCALIZATION
+
+Authorized execution population: 80 History-A + 80 History-B.
+Execution is permitted only on the frozen prospective-v0.3 assay rooted at commit 6aca5d204f865809a2566dadf13e1c4418e953a9.
+Interpretation is prohibited unless all 160 C1 terminal signatures replay exactly against V0_2_TERMINAL_SIGNATURES.json.
+No intervention-response execution is authorized.
