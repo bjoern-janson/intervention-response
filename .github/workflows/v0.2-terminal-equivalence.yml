@@ -25,10 +25,10 @@ jobs:
           echo "2e10e6671f97da8b66ad8bfb16c3a52bb78c9f20d87d396566f655d25f6c8b8b  data.py" | sha256sum -c -
           echo "2e3447b192c0c88e15012a8dfbfdc44eff5ba789302e090ce2fedcaefe67d674  model.py" | sha256sum -c -
           echo "0519121e3b1ae218d7105b14cb51355f60aa7babdbf0989488644a09a0d9937f  experiment.py" | sha256sum -c -
-          echo "327ce169785cdf05550b72041d33a7104a1f3fe8a40c2299ec922e7ba9792562  forensic_v0_2.py" | sha256sum -c -
+          echo "1c911f23d8309416859a3072cb4d5718e5fdb6c0f6c4949041a92b064e3e5016  forensic_v0_2.py" | sha256sum -c -
           echo "e8c42472bce03355a1bc3a8a25c2f35a4e59b688addc55a6f152b95e3c99bd88  test_forensic_v0_2.py" | sha256sum -c -
           echo "3cfa82b50e4678eb65d479e22d317d2003a46b4ef3f40874e519dc7f4afa5d82  V0_2_PREREGISTRATION.md" | sha256sum -c -
-          echo "7e3494b922f2ff64595ec71eb4795f76fb0e5b4345c7daec9dad73f43e905c4d  docs/superpowers/plans/2026-09-10-v0-2-terminal-equivalence-characterization.md" | sha256sum -c -
+          echo "7d6274c41ef4124776e81e2107df750a2c07fb72fbf7a9d60704c42d49adfadb  docs/superpowers/plans/2026-09-10-v0-2-terminal-equivalence-characterization.md" | sha256sum -c -
           if grep -nE 'apply_intervention|frozen_pair_metrics' forensic_v0_2.py; then
             echo "Forbidden post-terminal helper reference found in forensic_v0_2.py"
             exit 1
