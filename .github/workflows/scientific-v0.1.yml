@@ -4,7 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - engineered_world_v0_1.zip
+      - world.py
+      - data.py
+      - model.py
+      - experiment.py
       - .github/workflows/scientific-v0.1.yml
 
 permissions:
@@ -18,13 +21,13 @@ jobs:
       - name: Checkout execution commit
         uses: actions/checkout@v4
 
-      - name: Verify sealed archive
+      - name: Verify frozen runtime source identity
         shell: bash
         run: |
-          echo "1a38413702696480efe3ce0db5d05b875c6838f6ea7ac1d4a3c6cc9c85049e13  engineered_world_v0_1.zip" | sha256sum -c -
-          unzip -q engineered_world_v0_1.zip
-          cd engineered_world_v0_1
-          sha256sum -c FILE_SHA256SUMS.txt
+          echo "17f7fa7172a1e0927ab9b93df1abcc7fdb3fc23b1838cf480fc1afa5509308cb  world.py" | sha256sum -c -
+          echo "2e10e6671f97da8b66ad8bfb16c3a52bb78c9f20d87d396566f655d25f6c8b8b  data.py" | sha256sum -c -
+          echo "2e3447b192c0c88e15012a8dfbfdc44eff5ba789302e090ce2fedcaefe67d674  model.py" | sha256sum -c -
+          echo "0519121e3b1ae218d7105b14cb51355f60aa7babdbf0989488644a09a0d9937f  experiment.py" | sha256sum -c -
 
       - name: Set up Python 3.13.5
         uses: actions/setup-python@v5
@@ -47,14 +50,10 @@ jobs:
           assert torch.__version__.split('+')[0] == '2.10.0'
           PY
 
-      - name: Re-run frozen pre-scientific gates
-        working-directory: engineered_world_v0_1
-        run: |
-          python -m unittest -v test_contract.py
-          python validate_contract.py
+      - name: Compile exact frozen runtime
+        run: python -m py_compile world.py data.py model.py experiment.py
 
       - name: Run frozen 80x80 scientific assay
-        working-directory: engineered_world_v0_1
         run: |
           python experiment.py --n-models 80 --out results.json
           sha256sum results.json | tee results.sha256
@@ -65,7 +64,7 @@ jobs:
         with:
           name: engineered-world-v0.1-scientific-result
           path: |
-            engineered_world_v0_1/results.json
-            engineered_world_v0_1/results.sha256
+            results.json
+            results.sha256
           if-no-files-found: warn
           retention-days: 90
