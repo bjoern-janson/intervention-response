@@ -1,0 +1,88 @@
+name: Engineered-World v0.3 Checkpoint / Format Localization
+
+on:
+  push:
+    branches: [prospective-v0.3]
+    paths:
+      - V0_3_EXECUTE
+
+permissions:
+  contents: read
+
+jobs:
+  v0-3-localization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout frozen v0.3 commit
+        uses: actions/checkout@v4
+
+      - name: Verify frozen source and prospective contract identity
+        shell: bash
+        run: |
+          echo "17f7fa7172a1e0927ab9b93df1abcc7fdb3fc23b1838cf480fc1afa5509308cb  world.py" | sha256sum -c -
+          echo "2e10e6671f97da8b66ad8bfb16c3a52bb78c9f20d87d396566f655d25f6c8b8b  data.py" | sha256sum -c -
+          echo "2e3447b192c0c88e15012a8dfbfdc44eff5ba789302e090ce2fedcaefe67d674  model.py" | sha256sum -c -
+          echo "0519121e3b1ae218d7105b14cb51355f60aa7babdbf0989488644a09a0d9937f  experiment.py" | sha256sum -c -
+          echo "e727adb1a2f525b6c5c871ba5ff94d004cdf19d27e8de6c18ec6e5df6a6f4e9e  V0_2_TERMINAL_SIGNATURES.json" | sha256sum -c -
+          echo "110881de60a667afaf380b97404a4aa71278e335035f48b33062cb96b75dd6a3  V0_3_PREREGISTRATION.md" | sha256sum -c -
+          echo "012e3285b42131df246fa12e1c553a0805e6752a658f4204e4ec43cee0235afd  v0_3_checkpoint_localization.py" | sha256sum -c -
+          echo "af766d0f4070c2353632c9a531dc394de4f0d7ad2250c1a84e870723a47917a3  test_v0_3_checkpoint_localization.py" | sha256sum -c -
+          echo "40494f043bd4fd642746ba6b3bfd17efb7a18f63d7a1300d4de7a54b3aa5f213  docs/superpowers/plans/2026-09-10-v0-3-checkpoint-format-localization.md" | sha256sum -c -
+          if grep -nE 'apply_intervention|frozen_pair_metrics|DIAGNOSTIC_EVIDENCE|CONTROL_EVIDENCE' v0_3_checkpoint_localization.py; then
+            echo "Forbidden intervention/post-terminal reference found in v0.3 runner"
+            exit 1
+          fi
+
+      - name: Set up Python 3.13.5
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.5'
+
+      - name: Install frozen runtime
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.3.5 torch==2.10.0
+          python - <<'PY'
+          import sys, numpy, torch
+          print('python', sys.version)
+          print('numpy', numpy.__version__)
+          print('torch', torch.__version__)
+          assert sys.version_info[:3] == (3, 13, 5)
+          assert numpy.__version__ == '2.3.5'
+          assert torch.__version__.split('+')[0] == '2.10.0'
+          PY
+
+      - name: Compile exact frozen runtime and v0.3 layer
+        run: |
+          python -m py_compile world.py data.py model.py experiment.py v0_3_checkpoint_localization.py test_v0_3_checkpoint_localization.py
+
+      - name: Run v0.3 regression gates
+        run: |
+          python -m unittest -v test_v0_3_checkpoint_localization.py
+
+      - name: Run replay-only 2x2 smoke
+        run: |
+          python v0_3_checkpoint_localization.py --smoke --out v0_3_smoke.json
+          sha256sum v0_3_smoke.json | tee v0_3_smoke.sha256
+
+      - name: Run frozen 80x80 v0.3 localization
+        run: |
+          python v0_3_checkpoint_localization.py --n-models 80 --out v0_3_results.json
+          sha256sum v0_3_results.json | tee v0_3_results.sha256
+
+      - name: Upload v0.3 custody
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engineered-world-v0.3-checkpoint-format-result
+          path: |
+            v0_3_results.json
+            v0_3_results.sha256
+            v0_3_smoke.json
+            v0_3_smoke.sha256
+            V0_3_PREREGISTRATION.md
+            V0_2_TERMINAL_SIGNATURES.json
+          if-no-files-found: warn
+          retention-days: 90
