@@ -20,6 +20,7 @@ jobs:
       - name: Verify frozen source and forensic contract identity
         shell: bash
         run: |
+          sha256sum world.py data.py model.py experiment.py forensic_v0_2.py test_forensic_v0_2.py V0_2_PREREGISTRATION.md docs/superpowers/plans/2026-09-10-v0-2-terminal-equivalence-characterization.md
           echo "17f7fa7172a1e0927ab9b93df1abcc7fdb3fc23b1838cf480fc1afa5509308cb  world.py" | sha256sum -c -
           echo "2e10e6671f97da8b66ad8bfb16c3a52bb78c9f20d87d396566f655d25f6c8b8b  data.py" | sha256sum -c -
           echo "2e3447b192c0c88e15012a8dfbfdc44eff5ba789302e090ce2fedcaefe67d674  model.py" | sha256sum -c -
